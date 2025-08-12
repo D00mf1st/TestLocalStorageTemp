@@ -1,14 +1,15 @@
 import os, uuid
-from flask import Flask, request, render_template_string, abort, url_for, redirect, send_from_directory
+from flask import Flask, request, render_template_string, abort, url_for, send_from_directory
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB
 ALLOWED = {"png", "jpg", "jpeg", "gif", "webp"}
 
-# Persistenter App-Ordner (in App Service: /home bzw. D:\home)
-HOME = os.environ.get("HOME", os.getcwd())
-UPLOAD_DIR = os.path.join(HOME, "uploads")
+# >>> PERSISTENTER SPEICHER (Azure App Service) <<<
+# Linux-App Service: /home   |  Windows-App Service: D:\home
+PERSISTENT_ROOT = "/home" if os.name != "nt" else os.environ.get("HOME", r"D:\home")
+UPLOAD_DIR = os.path.join(PERSISTENT_ROOT, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 HTML = """
@@ -48,6 +49,17 @@ def upload():
 @app.get("/files/<path:filename>")
 def file(filename):
     return send_from_directory(UPLOAD_DIR, filename, as_attachment=False)
+
+# Kleine Debug-Route zur Kontrolle
+@app.get("/debug")
+def debug():
+    return {
+        "os.name": os.name,
+        "PERSISTENT_ROOT": PERSISTENT_ROOT,
+        "UPLOAD_DIR": UPLOAD_DIR,
+        "exists": os.path.isdir(UPLOAD_DIR),
+        "files": os.listdir(UPLOAD_DIR)
+    }
 
 if __name__ == "__main__":
     app.run(debug=True)
