@@ -1,15 +1,29 @@
-import os, uuid
-from flask import Flask, request, render_template_string, abort, url_for, redirect, send_from_directory
+import os, uuid, logging
+from flask import Flask, request, render_template_string, abort, url_for, send_from_directory
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 ALLOWED = {"png", "jpg", "jpeg", "gif", "webp"}
 
-# Persistenter App-Ordner (in App Service: /home bzw. D:\home)
-HOME = os.environ.get("HOME", os.getcwd())
+# Erzwinge persistentes Verzeichnis in App Service (Linux)
+HOME = "/home" if os.name != "nt" else os.environ.get("HOME", r"D:\home")
 UPLOAD_DIR = os.path.join(HOME, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.logger.info(f"UPLOAD_DIR = {UPLOAD_DIR} | CWD = {os.getcwd()}")
+
+def allowed(fn): return "." in fn and fn.rsplit(".", 1)[1].lower() in ALLOWED
+
+@app.get("/debug")
+def debug():
+    return {
+        "HOME": HOME,
+        "CWD": os.getcwd(),
+        "UPLOAD_DIR": UPLOAD_DIR,
+        "exists": os.path.isdir(UPLOAD_DIR),
+        "files": os.listdir(UPLOAD_DIR)
+    }
+
 
 HTML = """
 <!doctype html>
@@ -26,8 +40,6 @@ HTML = """
 {% endif %}
 """
 
-def allowed(filename: str) -> bool:
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED
 
 @app.get("/")
 def index():
